@@ -34,10 +34,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Convert to timestamps for comparison
-    const fromTs = fromTime ? Math.floor(fromTime.getTime() / 1000) : 0;
-    const toTs = Math.floor(toTime.getTime() / 1000);
-
     // Connect to MongoDB with appropriate URI based on env
     const db = await getDatabase(envParam === 'prod' ? 'MONGODB_URI_PROD' : 'MONGODB_URI');
     
@@ -88,11 +84,27 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      // Stage 4: Sort by date descending
+      // Stage 4: Project only needed fields (avoids sending large artifactData to Node)
+      {
+        $project: {
+          _id: 0,
+          artifactId: 1,
+          artifactTitle: 1,
+          artifactTitleIDs: 1,
+          created_at: 1,
+          updated_at: 1,
+          userEmail: 1,
+          modeName: 1,
+          widgetName: 1,
+          'artifactData.userStorySnapshot': 1,
+          'artifactData.selectedProjectSnapShot': 1,
+        }
+      },
+      // Stage 5: Sort by date descending
       {
         $sort: { parsed_date: -1 }
       },
-      // Stage 5: Limit results
+      // Stage 6: Limit results
       {
         $limit: 1000
       }
