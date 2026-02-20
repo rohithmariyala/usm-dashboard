@@ -30,6 +30,24 @@ export interface PaginationState {
 
 export type Environment = 'dev' | 'prod';
 
+export interface ArtifactStats {
+  summary: {
+    total: number;
+    success: number;
+    failed: number;
+    pending: number;
+    unique_users: number;
+    unique_templates: number;
+  };
+  by_day: Array<{ date: string; count: number }>;
+  by_user: Array<{
+    email: string;
+    count: number;
+    templates: string[];
+    last_active: string | null;
+  }>;
+}
+
 export const getArtifactUrl = (artifactId: string, environment: Environment, modeName: string): string => {
   const baseUrl = environment === 'dev' ? 'https://dev.appmod.ai' : 'https://appmod.ai';
   const encodedModeName = encodeURIComponent('Requirement AI');

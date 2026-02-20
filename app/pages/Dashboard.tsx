@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Clock, RefreshCw, CalendarIcon, DownloadIcon, Settings, Database } from 'lucide-react';
+import { Clock, RefreshCw, CalendarIcon, Settings, Database } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   Tabs,
@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from "date-fns";
 
 // Import components
 import StatsOverview from './components/StatsOverview';
@@ -28,13 +27,13 @@ import CustomDateRangePicker from './components/CustomRangePicker';
 import PromptManager from './Promptmanager';
 
 // Types
-import { TimeWindow, UserStoryData, Environment } from './types';
+import { TimeWindow, ArtifactStats, Environment } from './types';
 
 export default function Dashboard() {
   // State management
   const [activeTab, setActiveTab] = useState("overview");
   const [timeWindow, setTimeWindow] = useState('Last 24 Hours');
-  const [data, setData] = useState<UserStoryData[]>([]);
+  const [stats, setStats] = useState<ArtifactStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
@@ -143,22 +142,19 @@ export default function Dashboard() {
       params.append('toTime', toTime.toISOString());
       params.append('env', environment);
       
-      const apiUrl = `/api/artifacts?${params.toString()}`;
-      console.log('Fetching data from:', apiUrl);
-      
+      const apiUrl = `/api/artifacts/stats?${params.toString()}`;
       const response = await fetch(apiUrl);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result = await response.json();
-      console.log('API response:', result);
-      setData(Array.isArray(result) ? result : []);
+      setStats(result);
       setLastFetched(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      setData([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -167,59 +163,6 @@ export default function Dashboard() {
   // Handle environment change
   const handleEnvironmentChange = (value: Environment) => {
     setEnvironment(value);
-  };
-
-  // Export data to CSV
-  const exportToCSV = () => {
-    if (data.length === 0) return;
-
-    // Define headers and fields to include
-    const headers = [
-      'Artifact ID',
-      'Artifact Title',
-      'Date',
-      'Time',
-      'User Email',
-      'Template',
-      'Project',
-      'Status',
-      'Created At'
-    ];
-
-    const csvRows = [];
-
-    // Add the headers
-    csvRows.push(headers.join(','));
-
-    // Add the data
-    for (const item of data) {
-      const values = [
-        item.artifact_id || '',
-        `"${(item.artifact_title || '').replace(/"/g, '""')}"`, // Escape quotes in title
-        item.date || '',
-        item.time || '',
-        `"${(item.user_email || '').replace(/"/g, '""')}"`,
-        `"${(item.mode_name || '').replace(/"/g, '""')}"`,
-        `"${(item.project_name || '').replace(/"/g, '""')}"`,
-        item.status || '',
-        item.created_at || ''
-      ];
-      csvRows.push(values.join(','));
-    }
-
-    // Create CSV content
-    const csvContent = csvRows.join('\n');
-
-    // Create a blob and download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `artifacts_export_${environment}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // Load data on component mount and when filters change
@@ -301,14 +244,6 @@ export default function Dashboard() {
                   Refresh
                 </Button>
                 
-                <Button 
-                  onClick={exportToCSV}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  disabled={data.length === 0}
-                >
-                  <DownloadIcon className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
               </>
             )}
           </div>
@@ -372,19 +307,16 @@ export default function Dashboard() {
             ) : (
               <>
                 {/* Stats Overview */}
-                <StatsOverview data={data} />
-                
+                <StatsOverview summary={stats?.summary ?? null} />
+
                 {/* Activity Graphs */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <DayActivity data={data} />
-                  <TopUsers data={data} />
+                  <DayActivity byDay={stats?.by_day ?? []} />
+                  <TopUsers users={stats?.by_user ?? []} />
                 </div>
-                
-                {/* Projects - Uncomment if needed */}
-                {/* <TopProjects data={data} /> */}
-                
+
                 {/* Show empty state if no data */}
-                {data.length === 0 && !loading && (
+                {!stats && !loading && (
                   <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-12 text-center border border-slate-700">
                     <p className="text-slate-400 text-lg">No data available for the selected time period.</p>
                   </div>
@@ -394,8 +326,8 @@ export default function Dashboard() {
           </TabsContent>
           
           <TabsContent value="data">
-            <DataTable 
-              initialData={data} 
+            <DataTable
+              initialData={[]}
               timeWindow={timeWindow}
               environment={environment}
               isLoading={loading}
