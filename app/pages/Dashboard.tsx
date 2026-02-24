@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Clock, RefreshCw, CalendarIcon, Settings, Database } from 'lucide-react';
+import { Clock, RefreshCw, Database } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   Tabs,
@@ -24,7 +24,6 @@ import TopUsers from './components/TopUsers';
 import DataTable from './components/DataTable';
 import DayActivity from './components/DayActivity';
 import CustomDateRangePicker from './components/CustomRangePicker';
-import PromptManager from './Promptmanager';
 
 // Types
 import { TimeWindow, ArtifactStats, Environment } from './types';
@@ -191,7 +190,7 @@ export default function Dashboard() {
               User Story Analytics Dashboard
             </h1>
             <p className="text-slate-400">
-              Monitor user story generation and manage AI prompts across flows
+              Monitor user story generation across flows
             </p>
           </div>
           
@@ -275,26 +274,19 @@ export default function Dashboard() {
           onValueChange={handleTabChange}
           className="space-y-6"
         >
-          <TabsList className="grid w-full md:w-[600px] grid-cols-3 bg-slate-800 p-1">
-            <TabsTrigger 
+          <TabsList className="grid w-full md:w-[400px] grid-cols-2 bg-slate-800 p-1">
+            <TabsTrigger
               value="overview"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
             >
               <Database className="mr-2 h-4 w-4" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="data"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
             >
               Data Table
-            </TabsTrigger>
-            <TabsTrigger 
-              value="prompts"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Prompt Management
             </TabsTrigger>
           </TabsList>
           
@@ -336,9 +328,6 @@ export default function Dashboard() {
             />
           </TabsContent>
           
-          <TabsContent value="prompts">
-            <PromptManager environment={environment} />
-          </TabsContent>
         </Tabs>
       </div>
     </div>
