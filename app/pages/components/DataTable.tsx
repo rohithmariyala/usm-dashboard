@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Download, RefreshCw, Eye, Link2, ExternalLink } from 'lucide-react';
+import { Search, Filter, Download, RefreshCw, Eye, Link2, ExternalLink, FileText, GitBranch } from 'lucide-react';
 import { UserStoryData, TimeWindow, PaginationState, Environment, getArtifactUrl } from '../types';
+
+type TitleType = 'all' | 'requirements' | 'overview_plan';
 
 interface DataTableProps {
   initialData: UserStoryData[];
@@ -39,10 +41,12 @@ const DataTable: React.FC<DataTableProps> = ({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<UserStoryData | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [titleType, setTitleType] = useState<TitleType>('requirements');
   const [appliedFilters, setAppliedFilters] = useState({
     status: null as string | null,
     template: null as string | null,
-    search: ''
+    search: '',
+    titleType: 'requirements' as TitleType
   });
   const [totalResults, setTotalResults] = useState(0);
 
@@ -120,7 +124,8 @@ const DataTable: React.FC<DataTableProps> = ({
           filters: {
             status: appliedFilters.status,
             template: appliedFilters.template,
-            search: appliedFilters.search
+            search: appliedFilters.search,
+            titleType: appliedFilters.titleType
           }
         })
       });
@@ -156,7 +161,8 @@ const DataTable: React.FC<DataTableProps> = ({
     setAppliedFilters({
       status: statusFilter,
       template: templateFilter,
-      search: searchTerm
+      search: searchTerm,
+      titleType
     });
     onRefresh();
   };
@@ -166,7 +172,8 @@ const DataTable: React.FC<DataTableProps> = ({
     setAppliedFilters({
       status: statusFilter,
       template: templateFilter,
-      search: searchTerm
+      search: searchTerm,
+      titleType
     });
     setIsFilterOpen(false);
     // Reset to first page when applying filters
@@ -190,6 +197,13 @@ const DataTable: React.FC<DataTableProps> = ({
       page: 1
     }));
     fetchTableData(1, pagination.pageSize);
+  };
+
+  // Handle title type filter change (immediate apply)
+  const handleTitleTypeChange = (newType: TitleType) => {
+    setTitleType(newType);
+    setAppliedFilters(prev => ({ ...prev, titleType: newType }));
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   // Extract unique templates for filter dropdown
@@ -335,8 +349,48 @@ const DataTable: React.FC<DataTableProps> = ({
     return getArtifactUrl(item.artifact_id, environment, item.mode_name || '');
   };
 
+  // Helper: is this item an overview plan?
+  const isOverviewPlan = (title?: string) =>
+    /^Generated Overview Plan/i.test(title ?? '');
+
   return (
     <div className="space-y-4">
+      {/* Title type segmented filter */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-slate-400 mr-1">Show:</span>
+        {([
+          { value: 'requirements', label: 'Generated Requirements', icon: FileText, color: 'blue' },
+          { value: 'overview_plan', label: 'Overview Plans', icon: GitBranch, color: 'amber' },
+          { value: 'all', label: 'All', icon: null, color: 'slate' },
+        ] as const).map(({ value, label, icon: Icon, color }) => {
+          const isActive = titleType === value;
+          const colorMap = {
+            blue: isActive
+              ? 'bg-blue-600 border-blue-500 text-white'
+              : 'border-slate-700 text-slate-400 hover:text-blue-300 hover:border-blue-500/50',
+            amber: isActive
+              ? 'bg-amber-600 border-amber-500 text-white'
+              : 'border-slate-700 text-slate-400 hover:text-amber-300 hover:border-amber-500/50',
+            slate: isActive
+              ? 'bg-slate-600 border-slate-500 text-white'
+              : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-500',
+          };
+          return (
+            <button
+              key={value}
+              onClick={() => handleTitleTypeChange(value)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${colorMap[color]}`}
+            >
+              {Icon && <Icon className="w-3.5 h-3.5" />}
+              {label}
+            </button>
+          );
+        })}
+        <span className="ml-auto text-xs text-slate-500">
+          {totalResults} {titleType === 'requirements' ? 'requirement' : titleType === 'overview_plan' ? 'overview plan' : 'total'}{totalResults !== 1 ? 's' : ''}
+        </span>
+      </div>
+
       {/* Search and filters */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <form onSubmit={handleSearchSubmit} className="relative flex-1">
@@ -454,10 +508,10 @@ const DataTable: React.FC<DataTableProps> = ({
           {appliedFilters.status && (
             <span className="bg-slate-700 px-2 py-1 rounded-md flex items-center">
               Status: {appliedFilters.status}
-              <button 
+              <button
                 onClick={() => {
                   setStatusFilter(null);
-                  setAppliedFilters(prev => ({...prev, status: null}));
+                  setAppliedFilters(prev => ({ ...prev, status: null }));
                   setPagination(prev => ({ ...prev, page: 1 }));
                   fetchTableData(1, pagination.pageSize);
                 }}
@@ -470,10 +524,10 @@ const DataTable: React.FC<DataTableProps> = ({
           {appliedFilters.template && (
             <span className="bg-slate-700 px-2 py-1 rounded-md flex items-center">
               Template: {appliedFilters.template}
-              <button 
+              <button
                 onClick={() => {
                   setTemplateFilter(null);
-                  setAppliedFilters(prev => ({...prev, template: null}));
+                  setAppliedFilters(prev => ({ ...prev, template: null }));
                   setPagination(prev => ({ ...prev, page: 1 }));
                   fetchTableData(1, pagination.pageSize);
                 }}
@@ -486,10 +540,10 @@ const DataTable: React.FC<DataTableProps> = ({
           {appliedFilters.search && (
             <span className="bg-slate-700 px-2 py-1 rounded-md flex items-center">
               Search: {appliedFilters.search}
-              <button 
+              <button
                 onClick={() => {
                   setSearchTerm('');
-                  setAppliedFilters(prev => ({...prev, search: ''}));
+                  setAppliedFilters(prev => ({ ...prev, search: '' }));
                   setPagination(prev => ({ ...prev, page: 1 }));
                   fetchTableData(1, pagination.pageSize);
                 }}
@@ -499,12 +553,12 @@ const DataTable: React.FC<DataTableProps> = ({
               </button>
             </span>
           )}
-          <button 
+          <button
             onClick={() => {
               setStatusFilter(null);
               setTemplateFilter(null);
               setSearchTerm('');
-              setAppliedFilters({status: null, template: null, search: ''});
+              setAppliedFilters({ status: null, template: null, search: '', titleType });
               setPagination(prev => ({ ...prev, page: 1 }));
               fetchTableData(1, pagination.pageSize);
             }}
@@ -613,7 +667,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                   setStatusFilter(null);
                                   setTemplateFilter(null);
                                   setSearchTerm('');
-                                  setAppliedFilters({status: null, template: null, search: ''});
+                                  setAppliedFilters({ status: null, template: null, search: '', titleType });
                                   fetchTableData(1, pagination.pageSize);
                                 }}
                               >
@@ -630,8 +684,21 @@ const DataTable: React.FC<DataTableProps> = ({
                         key={item.artifact_id || idx} 
                         className="border-b border-slate-800 hover:bg-slate-800/30"
                       >
-                        <td className="px-6 py-4 font-medium truncate max-w-[250px]" title={item.artifact_title}>
-                          {item.artifact_title || 'Untitled'}
+                        <td className="px-6 py-4 max-w-[280px]">
+                          <div className="flex flex-col gap-1">
+                            <span className="font-medium truncate" title={item.artifact_title}>
+                              {item.artifact_title || 'Untitled'}
+                            </span>
+                            {titleType === 'all' && (
+                              <span className={`self-start text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                isOverviewPlan(item.artifact_title)
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              }`}>
+                                {isOverviewPlan(item.artifact_title) ? 'Overview Plan' : 'Requirement'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           {item.date ? (

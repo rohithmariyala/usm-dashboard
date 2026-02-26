@@ -193,12 +193,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      limit = 10, 
-      skip = 0, 
+    const {
+      limit = 10,
+      skip = 0,
       env = 'dev',
       timeParams = '',  // Time filter params
-      filters = {} // Additional filters (status, template, search)
+      filters = {} // Additional filters (status, template, search, titleType)
     } = body;
 
     // Parse time parameters if provided
@@ -253,6 +253,13 @@ export async function POST(request: NextRequest) {
         { modeName: searchRegex },
         // Add other searchable fields as needed
       ];
+    }
+
+    // Add title type filter: 'requirements' excludes Overview Plan, 'overview_plan' includes only Overview Plan
+    if (filters.titleType === 'requirements') {
+      matchConditions.artifactTitle = { $not: /^Generated Overview Plan/i };
+    } else if (filters.titleType === 'overview_plan') {
+      matchConditions.artifactTitle = /^Generated Overview Plan/i;
     }
 
     // Build aggregation pipeline

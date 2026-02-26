@@ -38,6 +38,7 @@ export interface ArtifactStats {
     pending: number;
     unique_users: number;
     unique_templates: number;
+    overview_plan_count: number;
   };
   by_day: Array<{ date: string; count: number }>;
   by_user: Array<{

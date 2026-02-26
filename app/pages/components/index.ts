@@ -10,4 +10,3 @@ export { default as UsageByTime } from './UsageByTime';
 export { default as ProjectActivity } from './ProjectActivity';
 export { default as DayActivity } from './DayActivity';
 export { default as CustomRangePicker } from './CustomRangePicker';
-export { default as PromptManager } from '../Promptmanager'

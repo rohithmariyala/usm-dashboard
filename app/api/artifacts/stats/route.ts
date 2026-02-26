@@ -77,12 +77,22 @@ export async function GET(request: NextRequest) {
       }
     ];
 
+    // Exclude "Generated Overview Plan" sub-steps from analytics
+    const excludeOverviewPlan = {
+      $match: { artifactTitle: { $not: /^Generated Overview Plan/i } }
+    };
+    // Include only "Generated Overview Plan" sub-steps
+    const onlyOverviewPlan = {
+      $match: { artifactTitle: /^Generated Overview Plan/i }
+    };
+
     const pipeline: any[] = [
       ...dateParseStages,
       {
         $facet: {
-          // Summary counts
+          // Summary counts — excludes Generated Overview Plan sub-steps
           summary: [
+            excludeOverviewPlan,
             {
               $group: {
                 _id: null,
@@ -95,8 +105,9 @@ export async function GET(request: NextRequest) {
               }
             }
           ],
-          // Count per day
+          // Count per day — excludes Generated Overview Plan sub-steps
           by_day: [
+            excludeOverviewPlan,
             {
               $addFields: {
                 day: { $dateToString: { format: '%Y-%m-%d', date: '$parsed_date' } }
@@ -106,8 +117,9 @@ export async function GET(request: NextRequest) {
             { $sort: { _id: 1 } },
             { $project: { _id: 0, date: '$_id', count: 1 } }
           ],
-          // Count per user with templates and last active
+          // Count per user with templates and last active — excludes Generated Overview Plan sub-steps
           by_user: [
+            excludeOverviewPlan,
             {
               $group: {
                 _id: '$userEmail',
@@ -126,6 +138,11 @@ export async function GET(request: NextRequest) {
                 last_active: { $dateToString: { format: '%Y-%m-%d', date: '$last_active' } }
               }
             }
+          ],
+          // Count of Generated Overview Plan sub-steps (separate)
+          overview_plan: [
+            onlyOverviewPlan,
+            { $count: 'count' }
           ]
         }
       }
@@ -144,8 +161,10 @@ export async function GET(request: NextRequest) {
       unique_templates: (rawSummary?.unique_templates ?? []).filter(Boolean).length
     };
 
+    const overviewPlanCount = result?.overview_plan?.[0]?.count ?? 0;
+
     return NextResponse.json({
-      summary,
+      summary: { ...summary, overview_plan_count: overviewPlanCount },
       by_day: result?.by_day ?? [],
       by_user: (result?.by_user ?? []).filter((u: any) => u.email)
     });
