@@ -59,6 +59,30 @@ export default function Dashboard() {
     { label: 'Custom Range', custom: true },
   ];
 
+  // Granularity mapping based on time window
+  const getGranularity = (window: string, from: Date | null, to: Date | null): { unit: string; binSize: number } => {
+    const map: Record<string, { unit: string; binSize: number }> = {
+      'Last 1 Hour':   { unit: 'minute', binSize: 15 },
+      'Last 6 Hours':  { unit: 'hour',   binSize: 1  },
+      'Last 12 Hours': { unit: 'hour',   binSize: 2  },
+      'Last 24 Hours': { unit: 'hour',   binSize: 4  },
+      'Last 3 Days':   { unit: 'hour',   binSize: 12 },
+      'Last 7 Days':   { unit: 'day',    binSize: 1  },
+      'Last 14 Days':  { unit: 'day',    binSize: 1  },
+      'Last 30 Days':  { unit: 'day',    binSize: 1  },
+    };
+    if (map[window]) return map[window];
+    // Custom range: derive from duration
+    if (from && to) {
+      const diffHours = (to.getTime() - from.getTime()) / 3_600_000;
+      if (diffHours <= 2)   return { unit: 'minute', binSize: 15 };
+      if (diffHours <= 12)  return { unit: 'hour',   binSize: 1  };
+      if (diffHours <= 48)  return { unit: 'hour',   binSize: 4  };
+      if (diffHours <= 168) return { unit: 'hour',   binSize: 12 };
+    }
+    return { unit: 'day', binSize: 1 };
+  };
+
   // Time filter function
   const getTimeFilter = (selectedWindow: string) => {
     const now = new Date();
@@ -136,10 +160,13 @@ export default function Dashboard() {
       }
       
       // Build query parameters
+      const gran = getGranularity(windowType, fromTime, toTime);
       const params = new URLSearchParams();
       params.append('fromTime', fromTime.toISOString());
       params.append('toTime', toTime.toISOString());
       params.append('env', environment);
+      params.append('granularityUnit', gran.unit);
+      params.append('granularityBin', gran.binSize.toString());
       
       const apiUrl = `/api/artifacts/stats?${params.toString()}`;
       const response = await fetch(apiUrl);
@@ -302,10 +329,22 @@ export default function Dashboard() {
                 <StatsOverview summary={stats?.summary ?? null} />
 
                 {/* Activity Graphs */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <DayActivity byDay={stats?.by_day ?? []} />
-                  <TopUsers users={stats?.by_user ?? []} />
-                </div>
+                {(() => {
+                  const { fromTime: cFrom, toTime: cTo } = timeWindow === 'Custom Range' && customDateRange.from && customDateRange.to
+                    ? { fromTime: customDateRange.from, toTime: new Date(new Date(customDateRange.to).setHours(23, 59, 59, 999)) }
+                    : getTimeFilter(timeWindow);
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <DayActivity
+                        byTime={stats?.by_time ?? []}
+                        timeWindow={timeWindow}
+                        fromTime={cFrom ?? null}
+                        toTime={cTo}
+                      />
+                      <TopUsers users={stats?.by_user ?? []} />
+                    </div>
+                  );
+                })()}
 
                 {/* Show empty state if no data */}
                 {!stats && !loading && (

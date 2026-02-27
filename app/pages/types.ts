@@ -41,6 +41,7 @@ export interface ArtifactStats {
     overview_plan_count: number;
   };
   by_day: Array<{ date: string; count: number }>;
+  by_time: Array<{ bucket: string; count: number }>;
   by_user: Array<{
     email: string;
     count: number;

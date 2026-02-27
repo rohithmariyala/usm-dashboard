@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const granularityUnit = searchParams.get('granularityUnit') || 'day';
+    const granularityBin = parseInt(searchParams.get('granularityBin') || '1', 10);
+
     const toTime = new Date(toTimeParam);
     const fromTime = fromTimeParam ? new Date(fromTimeParam) : null;
 
@@ -139,6 +142,30 @@ export async function GET(request: NextRequest) {
               }
             }
           ],
+          // Count per time bucket (granularity-aware) — excludes Generated Overview Plan sub-steps
+          by_time: [
+            excludeOverviewPlan,
+            {
+              $addFields: {
+                bucket_date: {
+                  $dateTrunc: {
+                    date: '$parsed_date',
+                    unit: granularityUnit,
+                    binSize: granularityBin
+                  }
+                }
+              }
+            },
+            { $group: { _id: '$bucket_date', count: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+            {
+              $project: {
+                _id: 0,
+                bucket: { $dateToString: { format: '%Y-%m-%dT%H:%M:%SZ', date: '$_id' } },
+                count: 1
+              }
+            }
+          ],
           // Count of Generated Overview Plan sub-steps (separate)
           overview_plan: [
             onlyOverviewPlan,
@@ -166,6 +193,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       summary: { ...summary, overview_plan_count: overviewPlanCount },
       by_day: result?.by_day ?? [],
+      by_time: result?.by_time ?? [],
       by_user: (result?.by_user ?? []).filter((u: any) => u.email)
     });
 
