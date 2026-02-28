@@ -5,9 +5,10 @@ import { ArtifactStats } from '../types';
 
 interface TopUsersProps {
   users: ArtifactStats['by_user'];
+  onUserClick?: (email: string) => void;
 }
 
-const TopUsers: React.FC<TopUsersProps> = ({ users }) => {
+const TopUsers: React.FC<TopUsersProps> = ({ users, onUserClick }) => {
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'count' | 'email' | 'lastActive'>('count');
@@ -165,7 +166,14 @@ const TopUsers: React.FC<TopUsersProps> = ({ users }) => {
                 return (
                   <div
                     key={user.email}
-                    className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 hover:bg-slate-700/30"
+                    onClick={() => {
+                      if (onUserClick) {
+                        setShowAllUsers(false);
+                        setSearchTerm('');
+                        onUserClick(user.email);
+                      }
+                    }}
+                    className={`flex items-center justify-between px-4 py-3 border-b border-slate-700/50 hover:bg-slate-700/30 ${onUserClick ? 'cursor-pointer' : ''}`}
                   >
                     <div className="flex items-center">
                       <div className={`${getAvatarColor(initial)} rounded-full h-8 w-8 flex items-center justify-center text-sm font-medium`}>
@@ -212,7 +220,11 @@ const TopUsers: React.FC<TopUsersProps> = ({ users }) => {
             {topUsers.map((user, index) => {
               const initial = user.email.charAt(0).toUpperCase();
               return (
-                <div key={user.email} className="flex items-center justify-between">
+                <div
+                  key={user.email}
+                  onClick={() => onUserClick?.(user.email)}
+                  className={`flex items-center justify-between ${onUserClick ? 'cursor-pointer hover:bg-slate-700/30 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
+                >
                   <div className="flex items-center">
                     <div className="flex-shrink-0 w-6 text-center font-medium text-slate-500">
                       {index + 1}
@@ -233,7 +245,7 @@ const TopUsers: React.FC<TopUsersProps> = ({ users }) => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-white">{user.count}</p>
-                    <p className="text-xs text-slate-400">stories</p>
+                    <p className="text-xs text-slate-400">requirements</p>
                   </div>
                 </div>
               );

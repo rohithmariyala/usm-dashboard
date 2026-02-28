@@ -262,8 +262,10 @@ export async function POST(request: NextRequest) {
       matchConditions.artifactTitle = /^Generated Overview Plan/i;
     }
 
-    // Add user type filter based on internal email list
-    if (filters.userType === 'internal' && Array.isArray(filters.internalEmails) && filters.internalEmails.length > 0) {
+    // Add specific user email filter (for user drill-down)
+    if (filters.userEmail) {
+      matchConditions.userEmail = filters.userEmail;
+    } else if (filters.userType === 'internal' && Array.isArray(filters.internalEmails) && filters.internalEmails.length > 0) {
       matchConditions.userEmail = { $in: filters.internalEmails };
     } else if (filters.userType === 'actual' && Array.isArray(filters.internalEmails) && filters.internalEmails.length > 0) {
       matchConditions.userEmail = { $nin: filters.internalEmails };

@@ -30,6 +30,8 @@ import TopUsers from './components/TopUsers';
 import DataTable from './components/DataTable';
 import DayActivity from './components/DayActivity';
 import CustomDateRangePicker from './components/CustomRangePicker';
+import UserAnalytics from './components/UserAnalytics';
+import UserRequirementsModal from './components/UserRequirementsModal';
 
 // Types
 import { TimeWindow, ArtifactStats, Environment } from './types';
@@ -59,6 +61,9 @@ export default function Dashboard() {
   const [userTypeFilter, setUserTypeFilter] = useState<UserTypeFilter>('all');
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailInput, setEmailInput] = useState('');
+
+  // User drill-down modal state
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
 
   // Load internal emails from localStorage on mount
   useEffect(() => {
@@ -235,7 +240,7 @@ export default function Dashboard() {
 
   // Load data on component mount and when filters change
   useEffect(() => {
-    if ((timeWindow !== 'Custom Range' || (customDateRange.from && customDateRange.to)) && activeTab === 'overview') {
+    if ((timeWindow !== 'Custom Range' || (customDateRange.from && customDateRange.to)) && (activeTab === 'overview' || activeTab === 'users')) {
       fetchAnalyticsData();
     }
   }, [environment, activeTab, userTypeFilter, internalEmails]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -244,8 +249,8 @@ export default function Dashboard() {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     
-    // Load analytics data when switching to overview tab
-    if (value === 'overview' && (timeWindow !== 'Custom Range' || (customDateRange.from && customDateRange.to))) {
+    // Load analytics data when switching to overview or users tab
+    if ((value === 'overview' || value === 'users') && (timeWindow !== 'Custom Range' || (customDateRange.from && customDateRange.to))) {
       fetchAnalyticsData();
     }
   };
@@ -256,10 +261,10 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
-              User Story Analytics Dashboard
+              Requirement AI Analytics Dashboard
             </h1>
             <p className="text-slate-400">
-              Monitor user story generation across flows
+              Monitor requirement generation across flows
             </p>
           </div>
           
@@ -388,13 +393,20 @@ export default function Dashboard() {
           onValueChange={handleTabChange}
           className="space-y-6"
         >
-          <TabsList className="grid w-full md:w-[400px] grid-cols-2 bg-slate-800 p-1">
+          <TabsList className="grid w-full md:w-[560px] grid-cols-3 bg-slate-800 p-1">
             <TabsTrigger
               value="overview"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
             >
               <Database className="mr-2 h-4 w-4" />
               Analytics
+            </TabsTrigger>
+            <TabsTrigger
+              value="users"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Users
             </TabsTrigger>
             <TabsTrigger
               value="data"
@@ -428,7 +440,7 @@ export default function Dashboard() {
                         fromTime={cFrom ?? null}
                         toTime={cTo}
                       />
-                      <TopUsers users={stats?.by_user ?? []} />
+                      <TopUsers users={stats?.by_user ?? []} onUserClick={setSelectedUserEmail} />
                     </div>
                   );
                 })()}
@@ -443,6 +455,21 @@ export default function Dashboard() {
             )}
           </TabsContent>
           
+          <TabsContent value="users" className="space-y-6">
+            {loading ? (
+              <div className="text-center py-12 text-slate-400">
+                <RefreshCw className="h-12 w-12 animate-spin mx-auto mb-4" />
+                <p>Loading user data...</p>
+              </div>
+            ) : (
+              <UserAnalytics
+                users={stats?.by_user ?? []}
+                onUserClick={setSelectedUserEmail}
+                internalEmails={internalEmails}
+              />
+            )}
+          </TabsContent>
+
           <TabsContent value="data">
             <DataTable
               initialData={[]}
@@ -502,6 +529,19 @@ export default function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* User Requirements Modal */}
+      {selectedUserEmail && (
+        <UserRequirementsModal
+          userEmail={selectedUserEmail}
+          environment={environment}
+          timeWindow={timeWindow}
+          customDateRange={customDateRange}
+          internalEmails={internalEmails}
+          userTypeFilter={userTypeFilter}
+          onClose={() => setSelectedUserEmail(null)}
+        />
+      )}
     </div>
   );
 }
