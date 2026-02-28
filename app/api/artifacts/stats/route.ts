@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
 
     const granularityUnit = searchParams.get('granularityUnit') || 'day';
     const granularityBin = parseInt(searchParams.get('granularityBin') || '1', 10);
+    const userType = searchParams.get('userType') || 'all';
+    const internalEmailsParam = searchParams.get('internalEmails');
+    const internalEmails: string[] = internalEmailsParam ? JSON.parse(internalEmailsParam) : [];
 
     const toTime = new Date(toTimeParam);
     const fromTime = fromTimeParam ? new Date(fromTimeParam) : null;
@@ -89,8 +92,17 @@ export async function GET(request: NextRequest) {
       $match: { artifactTitle: /^Generated Overview Plan/i }
     };
 
+    // Build optional user type filter stage
+    const userEmailStages: any[] = [];
+    if (userType === 'internal' && internalEmails.length > 0) {
+      userEmailStages.push({ $match: { userEmail: { $in: internalEmails } } });
+    } else if (userType === 'actual' && internalEmails.length > 0) {
+      userEmailStages.push({ $match: { userEmail: { $nin: internalEmails } } });
+    }
+
     const pipeline: any[] = [
       ...dateParseStages,
+      ...userEmailStages,
       {
         $facet: {
           // Summary counts — excludes Generated Overview Plan sub-steps

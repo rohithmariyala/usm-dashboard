@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Clock, RefreshCw, Database } from 'lucide-react';
+import { Clock, RefreshCw, Database, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   Tabs,
@@ -16,10 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 // Import components
 import StatsOverview from './components/StatsOverview';
-import TopProjects from './components/TopProjects';
 import TopUsers from './components/TopUsers';
 import DataTable from './components/DataTable';
 import DayActivity from './components/DayActivity';
@@ -27,6 +33,8 @@ import CustomDateRangePicker from './components/CustomRangePicker';
 
 // Types
 import { TimeWindow, ArtifactStats, Environment } from './types';
+
+type UserTypeFilter = 'all' | 'internal' | 'actual';
 
 export default function Dashboard() {
   // State management
@@ -45,6 +53,36 @@ export default function Dashboard() {
     to: undefined
   });
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+
+  // Internal email filter state
+  const [internalEmails, setInternalEmails] = useState<string[]>([]);
+  const [userTypeFilter, setUserTypeFilter] = useState<UserTypeFilter>('all');
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+
+  // Load internal emails from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('usm_internal_emails');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setInternalEmails(parsed);
+        setEmailInput(parsed.join('\n'));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const saveInternalEmails = () => {
+    const emails = emailInput
+      .split('\n')
+      .map((e: string) => e.trim())
+      .filter((e: string) => e.length > 0);
+    setInternalEmails(emails);
+    localStorage.setItem('usm_internal_emails', JSON.stringify(emails));
+    setShowEmailDialog(false);
+  };
 
   // Time windows options
   const timeWindows: TimeWindow[] = [
@@ -167,6 +205,10 @@ export default function Dashboard() {
       params.append('env', environment);
       params.append('granularityUnit', gran.unit);
       params.append('granularityBin', gran.binSize.toString());
+      if (userTypeFilter !== 'all' && internalEmails.length > 0) {
+        params.append('userType', userTypeFilter);
+        params.append('internalEmails', JSON.stringify(internalEmails));
+      }
       
       const apiUrl = `/api/artifacts/stats?${params.toString()}`;
       const response = await fetch(apiUrl);
@@ -196,7 +238,7 @@ export default function Dashboard() {
     if ((timeWindow !== 'Custom Range' || (customDateRange.from && customDateRange.to)) && activeTab === 'overview') {
       fetchAnalyticsData();
     }
-  }, [environment, activeTab]); // Only automatically refresh on environment change
+  }, [environment, activeTab, userTypeFilter, internalEmails]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle tab changes
   const handleTabChange = (value: string) => {
@@ -222,6 +264,51 @@ export default function Dashboard() {
           </div>
           
           <div className="flex flex-wrap items-center gap-2">
+            {/* Internal Team Email Filter */}
+            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg p-1">
+              {(['all', 'actual', 'internal'] as UserTypeFilter[]).map((type) => {
+                const labels: Record<UserTypeFilter, string> = {
+                  all: 'All Users',
+                  actual: 'Actual Users',
+                  internal: 'Internal',
+                };
+                const isActive = userTypeFilter === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => { setUserTypeFilter(type); }}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                      isActive
+                        ? type === 'actual'
+                          ? 'bg-green-600 text-white'
+                          : type === 'internal'
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-slate-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {labels[type]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Manage Internal Emails Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setShowEmailDialog(true); setEmailInput(internalEmails.join('\n')); }}
+              className="bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center gap-1.5"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Team Emails
+              {internalEmails.length > 0 && (
+                <span className="ml-1 bg-orange-500/20 text-orange-400 text-xs px-1.5 py-0.5 rounded-full">
+                  {internalEmails.length}
+                </span>
+              )}
+            </Button>
+
             {/* Environment Selector */}
             <Select value={environment} onValueChange={handleEnvironmentChange}>
               <SelectTrigger className="w-28 bg-slate-800 border-slate-700 text-white">
@@ -364,11 +451,57 @@ export default function Dashboard() {
               isLoading={loading}
               onRefresh={fetchAnalyticsData}
               customDateRange={customDateRange}
+              internalEmails={internalEmails}
+              userTypeFilter={userTypeFilter}
             />
           </TabsContent>
-          
+
         </Tabs>
       </div>
+
+      {/* Internal Emails Management Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Users className="h-5 w-5 text-orange-400" />
+              Manage Internal Team Emails
+            </DialogTitle>
+            <p className="text-slate-400 text-sm mt-1">
+              Enter email addresses of internal team members (one per line). Use the <span className="text-orange-400 font-medium">Internal</span> / <span className="text-green-400 font-medium">Actual Users</span> filter to separate their activity.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <textarea
+              value={emailInput}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEmailInput(e.target.value)}
+              placeholder="user@company.com&#10;tester@company.com&#10;developer@company.com"
+              rows={8}
+              className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg p-3 focus:ring-blue-500 focus:border-blue-500 resize-none font-mono"
+            />
+            <p className="text-xs text-slate-500">
+              {emailInput.split('\n').filter((e: string) => e.trim().length > 0).length} email(s) configured
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEmailDialog(false)}
+              className="bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveInternalEmails}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

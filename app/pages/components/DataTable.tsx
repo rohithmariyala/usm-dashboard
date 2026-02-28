@@ -4,6 +4,8 @@ import { UserStoryData, TimeWindow, PaginationState, Environment, getArtifactUrl
 
 type TitleType = 'all' | 'requirements' | 'overview_plan';
 
+type UserTypeFilter = 'all' | 'internal' | 'actual';
+
 interface DataTableProps {
   initialData: UserStoryData[];
   timeWindow: string;
@@ -14,15 +16,19 @@ interface DataTableProps {
     from: Date | undefined;
     to: Date | undefined;
   };
+  internalEmails?: string[];
+  userTypeFilter?: UserTypeFilter;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ 
-  initialData, 
-  timeWindow, 
-  environment, 
-  isLoading, 
+const DataTable: React.FC<DataTableProps> = ({
+  initialData,
+  timeWindow,
+  environment,
+  isLoading,
   onRefresh,
-  customDateRange 
+  customDateRange,
+  internalEmails = [],
+  userTypeFilter = 'all',
 }) => {
   // State management
   const [data, setData] = useState<UserStoryData[]>([]);
@@ -125,7 +131,9 @@ const DataTable: React.FC<DataTableProps> = ({
             status: appliedFilters.status,
             template: appliedFilters.template,
             search: appliedFilters.search,
-            titleType: appliedFilters.titleType
+            titleType: appliedFilters.titleType,
+            internalEmails,
+            userType: userTypeFilter,
           }
         })
       });
@@ -148,7 +156,7 @@ const DataTable: React.FC<DataTableProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.pageSize, timeWindow, environment, appliedFilters, customDateRange]);
+  }, [pagination.page, pagination.pageSize, timeWindow, environment, appliedFilters, customDateRange, internalEmails, userTypeFilter]);
 
   // Load data on component mount and when filters change
   useEffect(() => {
